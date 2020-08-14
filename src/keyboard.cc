@@ -26,8 +26,10 @@ Keyboard::Keyboard(FlutterEngine engine, wayland::keyboard_t& keyb)
 
   keyb_.on_keymap() = [&](wayland::keyboard_keymap_format format, int fd,
                           uint32_t size) {
+    FLWAY_LOG << "on_keymap(), " <<std::endl;
     keyb_format = format;
     if (format == wayland::keyboard_keymap_format::xkb_v1) {
+      FLWAY_LOG << "xkb_v1 enable" <<std::endl;
       char* keymap_string = reinterpret_cast<char*>(
           mmap(NULL, size, PROT_READ, MAP_SHARED, fd, 0));
       xkb_keymap_unref(keymap);
@@ -43,6 +45,7 @@ Keyboard::Keyboard(FlutterEngine engine, wayland::keyboard_t& keyb)
 
   keyb_.on_key() = [&](uint32_t, uint32_t, uint32_t key,
                        wayland::keyboard_key_state state) {
+    FLWAY_LOG << "on_key() " << std::endl;
     if (keyb_format == wayland::keyboard_keymap_format::xkb_v1) {
       xkb_keysym_t keysym = xkb_state_key_get_one_sym(xkb_state, key + 8);
       uint32_t utf32 = xkb_keysym_to_utf32(keysym);
@@ -111,6 +114,8 @@ Keyboard::Keyboard(FlutterEngine engine, wayland::keyboard_t& keyb)
   keyb_.on_modifiers() = [&](uint32_t serial, uint32_t mods_depressed,
                              uint32_t mods_latched, uint32_t mods_locked,
                              uint32_t group) {
+    FLWAY_LOG << "on_modifiers() " << std::endl;
+
     xkb_state_update_mask(xkb_state, mods_depressed, mods_latched, mods_locked,
                           0, 0, group);
   };

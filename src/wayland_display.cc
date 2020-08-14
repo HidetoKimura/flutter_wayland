@@ -141,6 +141,13 @@ void WaylandDisplay::InitializeApplication(
   }
   platform_channel_.SetEngine(engine_);
 
+  if (has_keyboard) {
+    std::cout << "Keyboard Present" << std::endl;
+    wayland::keyboard_t key = seat.get_keyboard();
+    keyboard = std::make_unique<Keyboard>(engine_, key);
+  }
+
+
   result = FlutterEngineRunInitialized(engine_);
   if (result != kSuccess) {
     FLWAY_ERROR << "Could not run the initialized Flutter engine" << std::endl;
@@ -200,6 +207,7 @@ WaylandDisplay::WaylandDisplay(size_t width,
 
   // create a shell surface
   if (xdg_wm_base) {
+    FLWAY_LOG << "xdg_surface enable." << std::endl;
     xdg_wm_base.on_ping() = [&](uint32_t serial) { xdg_wm_base.pong(serial); };
     xdg_surface = xdg_wm_base.get_xdg_surface(surface);
     xdg_surface.on_configure() = [&](uint32_t serial) {
@@ -209,6 +217,7 @@ WaylandDisplay::WaylandDisplay(size_t width,
     xdg_toplevel.set_title("Window");
     xdg_toplevel.on_close() = [&]() { running = false; };
   } else {
+    FLWAY_LOG << "shell_surace enable." << std::endl;
     shell_surface = shell.get_shell_surface(surface);
     shell_surface.on_ping() = [&](uint32_t serial) {
       shell_surface.pong(serial);
@@ -354,9 +363,9 @@ WaylandDisplay::WaylandDisplay(size_t width,
     };
   }
 
-  if (has_keyboard) {
-    std::cout << "Keyboard Present" << std::endl;
-  }
+//  if (has_keyboard) {
+//    std::cout << "Keyboard Present" << std::endl;
+//  }
 
   // intitialize egl
   egl_window = egl_window_t(surface, screen_width_, screen_height_);

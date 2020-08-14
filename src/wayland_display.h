@@ -60,7 +60,8 @@ class WaylandDisplay {
   xdg_surface_t xdg_surface;
   xdg_toplevel_t xdg_toplevel;
   pointer_t pointer;
-  Keyboard* keyboard;
+  //Keyboard* keyboard;
+  std::unique_ptr<Keyboard> keyboard;
   touch_t touch;
 
   // EGL
