@@ -6,11 +6,14 @@
 #include <functional>
 #include <map>
 
+#include <thread>
+
 namespace flutter {
 
 class PlatformChannel {
  public:
   PlatformChannel();
+  ~PlatformChannel();
   void PlatformMessageCallback(const FlutterPlatformMessage* message);
   void SetEngine(FlutterEngine engine);
 
@@ -30,6 +33,12 @@ class PlatformChannel {
   void OnFlutterPluginConnectivityStatus(const FlutterPlatformMessage*);
   void OnFlutterPluginIoVideoPlayer(const FlutterPlatformMessage*);
   void OnFlutterPluginIoVideoPlayerEvents(const FlutterPlatformMessage*);
+  void OnFlutterQtMapboxGLEvents(const FlutterPlatformMessage*);
+
+  std::unique_ptr<std::thread> server_thread_;
+  void ServerThread(void);
+
+  int socket_fd_ = -1;
 };
 
 }  // namespace flutter

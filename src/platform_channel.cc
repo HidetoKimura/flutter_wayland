@@ -5,8 +5,10 @@
 #include <rapidjson/writer.h>
 #include <sys/wait.h>
 #include <unistd.h>
-
 #include <sstream>
+
+#include <sys/socket.h>
+#include <sys/un.h>
 
 #include "macros.h"
 
@@ -30,6 +32,9 @@ PlatformChannel::PlatformChannel() {
       "flutter.io/videoPlayer";
   static constexpr char kPluginFlutterIoVideoPlayerEvents[] =
       "flutter.io/videoPlayer/videoEventsnull";
+
+  static constexpr char kPluginFlutterQtMapboxGLEvents[] =
+      "com.mapbox/mapboxgl.qt";
 
   platform_message_handlers_[kAccessibilityChannel] =
       std::bind(&PlatformChannel::OnAccessibilityChannelPlatformMessage, this,
@@ -58,6 +63,101 @@ PlatformChannel::PlatformChannel() {
   platform_message_handlers_[kPluginFlutterIoVideoPlayerEvents] =
       std::bind(&PlatformChannel::OnFlutterPluginIoVideoPlayerEvents, this,
                 std::placeholders::_1);
+
+  platform_message_handlers_[kPluginFlutterQtMapboxGLEvents] =
+      std::bind(&PlatformChannel::OnFlutterQtMapboxGLEvents, this,
+                std::placeholders::_1);
+  
+  server_thread_ = std::make_unique<std::thread>(&PlatformChannel::ServerThread, this);
+
+}
+
+PlatformChannel::~PlatformChannel() {
+  server_thread_->join();
+}
+
+void PlatformChannel::ServerThread(void) {
+
+  static constexpr char kUnixSocketPath[] = "/tmp/flutter_mapbox_demo.unixsocket";
+
+  int ret_code = 0;
+
+  int fd_accept = -1;
+  ssize_t size = 0;
+  int flags = 0;
+
+  int response = -1;
+
+  FLWAY_LOG << "ServerThread Start..." << std::endl;
+
+  remove(kUnixSocketPath);
+
+  struct sockaddr_un sun, sun_client;
+  memset(&sun, 0, sizeof(sun));
+  memset(&sun_client, 0, sizeof(sun_client));
+
+  socklen_t socklen = sizeof(sun_client);
+
+  fd_accept = socket(AF_LOCAL, SOCK_STREAM, 0);
+  if (fd_accept == -1) {
+    FLWAY_ERROR << "socket create faild." << std::endl;
+    return;
+  }
+
+  sun.sun_family = AF_LOCAL;
+  strcpy(sun.sun_path, kUnixSocketPath);
+
+  ret_code = bind(fd_accept, (const struct sockaddr *)&sun, sizeof(sun));
+  if (ret_code == -1) {
+    FLWAY_ERROR << "socket bind faild." << std::endl;
+    close(fd_accept);
+    return;
+  }
+
+  ret_code = listen(fd_accept, 10);
+  if (ret_code == -1) {
+    FLWAY_ERROR << "socket listen faild." << std::endl;
+    close(fd_accept);
+    return;
+  }
+  
+  FLWAY_LOG << "accecpt waiting..." << std::endl;
+  socket_fd_ = accept(fd_accept, (struct sockaddr *)&sun_client, &socklen);
+  if (socket_fd_ == -1) {
+      FLWAY_ERROR << "socket accept faild." << std::endl;
+      return;
+  }
+  FLWAY_LOG << "connect done." << std::endl;
+
+  while(1) {
+    uint32_t buf_len = 0;
+    size = read(socket_fd_, &buf_len, sizeof(buf_len));
+    if(size < sizeof(buf_len)) {
+      FLWAY_ERROR << "socket header read error." << std::endl;
+      break;
+    }
+
+    uint8_t* buf = reinterpret_cast<uint8_t*>(malloc(buf_len));
+    if(buf == NULL) {
+      FLWAY_ERROR << "socket body allocate error." << std::endl;
+      break;
+    }
+    size = read(socket_fd_, buf, buf_len);
+    if(size < buf_len) {
+      FLWAY_ERROR << "socket body read error." << std::endl;
+      free(buf);
+      break;
+    }
+
+    free(buf);
+
+    FLWAY_LOG << "recv data:" << buf << std::endl;
+  }
+
+  close(socket_fd_);
+  socket_fd_ = -1;
+
+  return;
 }
 
 void PlatformChannel::SetEngine(FlutterEngine engine) {
@@ -432,6 +532,58 @@ void PlatformChannel::OnFlutterPluginConnectivity(
   authorizedWhenInUse
 #endif
   }
+}
+
+void PlatformChannel::OnFlutterQtMapboxGLEvents(
+    const FlutterPlatformMessage* message) {
+  std::unique_ptr<std::vector<std::uint8_t>> result;
+  auto codec = &flutter::StandardMethodCodec::GetInstance();
+  auto method_call =
+      codec->DecodeMethodCall(message->message, message->message_size);
+  FLWAY_LOG << "QtMapboxGLEvents: " << method_call->method_name() << std::endl;
+
+  if (method_call->method_name().compare("SetCurrentLocation") == 0) {
+    if (method_call->arguments() && method_call->arguments()->IsMap()) {
+      const EncodableMap& arguments = method_call->arguments()->MapValue();
+      double lat, lon;
+      auto lat_it = arguments.find(EncodableValue("lat"));
+      if (lat_it != arguments.end()) {
+        lat = lat_it->second.DoubleValue();
+      }
+      auto lon_it = arguments.find(EncodableValue("lon"));
+      if (lon_it != arguments.end()) {
+        lon = lon_it->second.DoubleValue();
+      }
+      
+      rapidjson::Document document;
+      auto& allocator = document.GetAllocator();
+      document.SetObject();
+       
+      document.AddMember("method", "SetCurrentLocation", allocator);
+      document.AddMember("lat", lat, allocator);
+      document.AddMember("lon", lon, allocator);
+
+      rapidjson::StringBuffer buffer;
+      rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+      document.Accept(writer);
+      FLWAY_LOG << buffer.GetString() << std::endl;
+
+      uint32_t buf_len = buffer.GetSize();
+      
+      if( socket_fd_ != -1 ) {
+        write(socket_fd_, reinterpret_cast<const void*>(&buf_len), sizeof(buf_len));
+        write(socket_fd_, reinterpret_cast<const void*>(buffer.GetString()), buf_len);
+      }
+      else {
+        FLWAY_ERROR << "can not write buffer." << std::endl;
+      }
+    }
+  } 
+ 
+  flutter::EncodableValue val(true);
+  result = codec->EncodeSuccessEnvelope(&val);
+  FlutterEngineSendPlatformMessageResponse(engine_, message->response_handle,
+                                           result->data(), result->size());
 }
 
 }  // namespace flutter

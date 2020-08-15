@@ -72,7 +72,7 @@ pkg_check_modules(EGL REQUIRED egl)
 pkg_check_modules(XKBCOMMON REQUIRED xkbcommon)
 pkg_check_modules(RAPIDJSON REQUIRED "RapidJSON>=1.1.0")
 
-
+find_package(Threads REQUIRED)
 
 set(FLUTTER_WAYLAND_SRC
   flutter/standard_codec.cc
@@ -96,6 +96,8 @@ target_link_libraries(flutter_wayland dl
   ${EGL_LDFLAGS}
   ${XKBCOMMON_LIBRARIES}
   ${RAPIDJSON_LIBRARIES}
+  ${STD_THREAD_LIBRARIES}
+  Threads::Threads
 )
 
 target_include_directories(flutter_wayland
