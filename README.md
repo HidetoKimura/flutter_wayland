@@ -5,6 +5,8 @@ A Flutter Embedder that talks to Wayland.
 
 ![Running in Weston](assets/ubuntu_wayland_18.0.4.png)
 
+![Platfrom Channel in Weston](assets/mapbox-ivi.png)
+
 Build Setup Instructions
 ------------------------
 * For Ubuntu: `sudo apt-get install cmake ninja lib-wayland++ libgl1-mesa-dev libegl1-mesa-dev libgles2-mesa-dev libxkbcommon-dev rapidjson-dev`
