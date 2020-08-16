@@ -9,11 +9,18 @@ A Flutter Embedder that talks to Wayland.
 
 Build Setup Instructions
 ------------------------
-* For Ubuntu: `sudo apt-get install cmake ninja lib-wayland++ libgl1-mesa-dev libegl1-mesa-dev libgles2-mesa-dev libxkbcommon-dev rapidjson-dev`
+* For Ubuntu: `sudo apt-get install cmake ninja libgl1-mesa-dev libegl1-mesa-dev libgles2-mesa-dev libxkbcommon-dev rapidjson-dev libpugixml-dev`
+* Install additional packages: https://github.com/NilsBrause/waylandpp
 * From the source root `mkdir build` and move into the directory.
 * `cmake -G Ninja ../`. This should check you development environment for required packages, download the Flutter engine artifacts and unpack the same in the build directory.
 * `ninja` to build the embedder.
 * Run the embedder using `./flutter_wayland`. For Ubuntu log out, select gear icon, and select `Ubuntu on Wayland`.  Login.  See the instructions on running Flutter applications below.
+* If the application don't work, please check your flutter engine version, and download proper the engine and artifacts. Below is urls.
+
+~~~
+https://storage.googleapis.com/flutter_infra/flutter/<ENGINE VERSION(SHA)>/linux-x64/linux-x64-embedder
+https://storage.googleapis.com/flutter_infra/flutter/<ENGINE VERSION(SHA)>/linux-x64/artifacts.zip
+~~~
 
 Running Flutter Applications
 ----------------------------
